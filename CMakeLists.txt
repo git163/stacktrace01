@@ -62,6 +62,30 @@ if(Boost_FOUND)
     target_link_libraries(demo_log_adapter PRIVATE Boost::boost)
 endif()
 
+# Examples
+set(EXAMPLE_SOURCES
+    examples/example_uncaught_exception.cpp
+    examples/example_sigsegv.cpp
+    examples/example_sigfpe.cpp
+    examples/example_stack_overflow.cpp
+    examples/example_nested_call.cpp
+)
+
+# 为示例程序关闭优化，确保多层调用函数不被内联，堆栈信息完整
+set_source_files_properties(${EXAMPLE_SOURCES} PROPERTIES COMPILE_FLAGS "-O0")
+
+foreach(src ${EXAMPLE_SOURCES})
+    get_filename_component(name ${src} NAME_WE)
+    add_executable(${name} ${src} src/ExceptionHandler.cpp)
+    target_link_libraries(${name} PRIVATE stacktrace)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        target_link_libraries(${name} PRIVATE dl)
+    endif()
+    if(Boost_FOUND)
+        target_link_libraries(${name} PRIVATE Boost::boost)
+    endif()
+endforeach()
+
 # Unit tests
 enable_testing()
 add_executable(test_exceptions tests/test_exceptions.cpp src/ExceptionHandler.cpp)
