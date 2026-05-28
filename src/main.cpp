@@ -91,11 +91,18 @@ void TestThreadException() {
     LOG_INFO("TestThreadException: thread joined");
 }
 
+__attribute__((noinline)) static void CustomExceptionLevel3() {
+    throw StacktraceNS::StacktraceException("custom exception: something went wrong");
+}
+__attribute__((noinline)) static void CustomExceptionLevel2() { CustomExceptionLevel3(); }
+__attribute__((noinline)) static void CustomExceptionLevel1() { CustomExceptionLevel2(); }
+
 // Test 4: Custom exception type
 void TestCustomException() {
     LOG_INFO("TestCustomException: throwing custom exception");
-    throw StacktraceNS::StacktraceException("custom exception: something went wrong");
+    CustomExceptionLevel1();
 }
+
 
 // Test 5: Invalid memory access (SIGSEGV)
 void TestInvalidMemory() {
@@ -118,17 +125,31 @@ void TestDivisionByZero() {
     raise(SIGFPE);
 }
 
+__attribute__((noinline)) static void LogicErrorLevel3() {
+    throw StacktraceNS::StacktraceException("logic error: invalid argument");
+}
+__attribute__((noinline)) static void LogicErrorLevel2() { LogicErrorLevel3(); }
+__attribute__((noinline)) static void LogicErrorLevel1() { LogicErrorLevel2(); }
+
 // Test 7: std::logic_error
 void TestLogicError() {
     LOG_INFO("TestLogicError: throwing logic_error");
-    throw StacktraceNS::StacktraceException("logic error: invalid argument");
+    LogicErrorLevel1();
 }
+
+
+__attribute__((noinline)) static void RuntimeErrorLevel3() {
+    throw StacktraceNS::StacktraceException("runtime error: system failure");
+}
+__attribute__((noinline)) static void RuntimeErrorLevel2() { RuntimeErrorLevel3(); }
+__attribute__((noinline)) static void RuntimeErrorLevel1() { RuntimeErrorLevel2(); }
 
 // Test 8: std::runtime_error
 void TestRuntimeError() {
     LOG_INFO("TestRuntimeError: throwing runtime_error");
-    throw StacktraceNS::StacktraceException("runtime error: system failure");
+    RuntimeErrorLevel1();
 }
+
 
 // Test 9: std::out_of_range
 void TestOutOfRange() {
@@ -137,29 +158,57 @@ void TestOutOfRange() {
     v.at(100) = 1;
 }
 
+__attribute__((noinline)) static void InvalidArgumentLevel3() {
+    throw StacktraceNS::StacktraceException("invalid argument: must be positive");
+}
+__attribute__((noinline)) static void InvalidArgumentLevel2() { InvalidArgumentLevel3(); }
+__attribute__((noinline)) static void InvalidArgumentLevel1() { InvalidArgumentLevel2(); }
+
 // Test 10: std::invalid_argument
 void TestInvalidArgument() {
     LOG_INFO("TestInvalidArgument: throwing invalid_argument");
-    throw StacktraceNS::StacktraceException("invalid argument: must be positive");
+    InvalidArgumentLevel1();
 }
+
+
+__attribute__((noinline)) static void LengthErrorLevel3() {
+    throw StacktraceNS::StacktraceException("length error: exceeds maximum size");
+}
+__attribute__((noinline)) static void LengthErrorLevel2() { LengthErrorLevel3(); }
+__attribute__((noinline)) static void LengthErrorLevel1() { LengthErrorLevel2(); }
 
 // Test 11: std::length_error
 void TestLengthError() {
     LOG_INFO("TestLengthError: throwing length_error");
-    throw StacktraceNS::StacktraceException("length error: exceeds maximum size");
+    LengthErrorLevel1();
 }
+
+
+__attribute__((noinline)) static void OverflowErrorLevel3() {
+    throw StacktraceNS::StacktraceException("overflow error: value too large");
+}
+__attribute__((noinline)) static void OverflowErrorLevel2() { OverflowErrorLevel3(); }
+__attribute__((noinline)) static void OverflowErrorLevel1() { OverflowErrorLevel2(); }
 
 // Test 12: std::overflow_error
 void TestOverflowError() {
     LOG_INFO("TestOverflowError: throwing overflow_error");
-    throw StacktraceNS::StacktraceException("overflow error: value too large");
+    OverflowErrorLevel1();
 }
+
+
+__attribute__((noinline)) static void UnderflowErrorLevel3() {
+    throw StacktraceNS::StacktraceException("underflow error: value too small");
+}
+__attribute__((noinline)) static void UnderflowErrorLevel2() { UnderflowErrorLevel3(); }
+__attribute__((noinline)) static void UnderflowErrorLevel1() { UnderflowErrorLevel2(); }
 
 // Test 13: std::underflow_error
 void TestUnderflowError() {
     LOG_INFO("TestUnderflowError: throwing underflow_error");
-    throw StacktraceNS::StacktraceException("underflow error: value too small");
+    UnderflowErrorLevel1();
 }
+
 
 // Test 14: Re-throw exception
 void TestRethrowException() {
@@ -330,11 +379,18 @@ void TestBadTypeid() {
     }
 }
 
+__attribute__((noinline)) static void BadExceptionLevel3() {
+    throw StacktraceNS::StacktraceException("std::bad_exception");
+}
+__attribute__((noinline)) static void BadExceptionLevel2() { BadExceptionLevel3(); }
+__attribute__((noinline)) static void BadExceptionLevel1() { BadExceptionLevel2(); }
+
 // Test 26: std::bad_exception
 void TestBadException() {
     LOG_INFO("TestBadException: throwing bad_exception");
-    throw StacktraceNS::StacktraceException("std::bad_exception");
+    BadExceptionLevel1();
 }
+
 
 // Test 27: null function pointer call
 void TestNullFunctionPointer() {
