@@ -15,6 +15,7 @@
 #include <csetjmp>
 #include <pthread.h>
 #include "ExceptionHandler.h"
+#include <stacktrace/Stacktrace.h>
 
 static std::string GetTimestamp() {
     auto now = std::chrono::system_clock::now();
@@ -38,8 +39,8 @@ static std::string GetTimestamp() {
 // ============================================================================
 
 void Level3Function() {
-    LOG_INFO("Level3Function: about to throw runtime_error");
-    throw std::runtime_error("deep exception in level3");
+    LOG_INFO("Level3Function: about to throw StacktraceException");
+    throw StacktraceNS::StacktraceException("deep exception in level3");
 }
 
 void Level2Function() {
@@ -64,11 +65,14 @@ void TestNestedExceptions() {
     try {
         try {
             LOG_INFO("TestNestedExceptions: throwing inner exception");
-            throw std::runtime_error("inner exception");
+            throw StacktraceNS::StacktraceException("inner exception");
         } catch (...) {
             LOG_INFO("TestNestedExceptions: catching and re-throwing with nesting");
-            std::throw_with_nested(std::runtime_error("outer exception"));
+            std::throw_with_nested(StacktraceNS::StacktraceException("outer exception"));
         }
+    } catch (const StacktraceNS::StacktraceException& e) {
+        LOG_INFO("TestNestedExceptions: catching nested StacktraceException");
+        ExceptionHandler::LogStacktrace("nested exception (std::throw_with_nested)", e.GetStacktrace());
     } catch (...) {
         LOG_INFO("TestNestedExceptions: catching nested exception");
         ExceptionHandler::LogStacktrace("nested exception (std::throw_with_nested)");
@@ -89,13 +93,8 @@ void TestThreadException() {
 
 // Test 4: Custom exception type
 void TestCustomException() {
-    struct CustomException : public std::exception {
-        const char* what() const noexcept override {
-            return "custom exception: something went wrong";
-        }
-    };
     LOG_INFO("TestCustomException: throwing custom exception");
-    throw CustomException();
+    throw StacktraceNS::StacktraceException("custom exception: something went wrong");
 }
 
 // Test 5: Invalid memory access (SIGSEGV)
@@ -122,13 +121,13 @@ void TestDivisionByZero() {
 // Test 7: std::logic_error
 void TestLogicError() {
     LOG_INFO("TestLogicError: throwing logic_error");
-    throw std::logic_error("logic error: invalid argument");
+    throw StacktraceNS::StacktraceException("logic error: invalid argument");
 }
 
 // Test 8: std::runtime_error
 void TestRuntimeError() {
     LOG_INFO("TestRuntimeError: throwing runtime_error");
-    throw std::runtime_error("runtime error: system failure");
+    throw StacktraceNS::StacktraceException("runtime error: system failure");
 }
 
 // Test 9: std::out_of_range
@@ -141,25 +140,25 @@ void TestOutOfRange() {
 // Test 10: std::invalid_argument
 void TestInvalidArgument() {
     LOG_INFO("TestInvalidArgument: throwing invalid_argument");
-    throw std::invalid_argument("invalid argument: must be positive");
+    throw StacktraceNS::StacktraceException("invalid argument: must be positive");
 }
 
 // Test 11: std::length_error
 void TestLengthError() {
     LOG_INFO("TestLengthError: throwing length_error");
-    throw std::length_error("length error: exceeds maximum size");
+    throw StacktraceNS::StacktraceException("length error: exceeds maximum size");
 }
 
 // Test 12: std::overflow_error
 void TestOverflowError() {
     LOG_INFO("TestOverflowError: throwing overflow_error");
-    throw std::overflow_error("overflow error: value too large");
+    throw StacktraceNS::StacktraceException("overflow error: value too large");
 }
 
 // Test 13: std::underflow_error
 void TestUnderflowError() {
     LOG_INFO("TestUnderflowError: throwing underflow_error");
-    throw std::underflow_error("underflow error: value too small");
+    throw StacktraceNS::StacktraceException("underflow error: value too small");
 }
 
 // Test 14: Re-throw exception
@@ -168,11 +167,14 @@ void TestRethrowException() {
     try {
         try {
             LOG_INFO("TestRethrowException: throwing initial exception");
-            throw std::runtime_error("initial exception");
+            throw StacktraceNS::StacktraceException("initial exception");
         } catch (...) {
             LOG_INFO("TestRethrowException: catching and re-throwing");
             throw;
         }
+    } catch (const StacktraceNS::StacktraceException& e) {
+        LOG_INFO("TestRethrowException: catching re-thrown StacktraceException");
+        ExceptionHandler::LogStacktrace("re-thrown exception", e.GetStacktrace());
     } catch (...) {
         LOG_INFO("TestRethrowException: catching re-thrown exception");
         ExceptionHandler::LogStacktrace("re-thrown exception");
@@ -183,14 +185,18 @@ void TestRethrowException() {
 void TestMultipleExceptions() {
     LOG_INFO("TestMultipleExceptions: throwing first exception");
     try {
-        throw std::runtime_error("first exception");
+        throw StacktraceNS::StacktraceException("first exception");
+    } catch (const StacktraceNS::StacktraceException& e) {
+        ExceptionHandler::LogStacktrace("multiple exceptions - first", e.GetStacktrace());
     } catch (...) {
         ExceptionHandler::LogStacktrace("multiple exceptions - first");
     }
 
     LOG_INFO("TestMultipleExceptions: throwing second exception");
     try {
-        throw std::logic_error("second exception");
+        throw StacktraceNS::StacktraceException("second exception");
+    } catch (const StacktraceNS::StacktraceException& e) {
+        ExceptionHandler::LogStacktrace("multiple exceptions - second", e.GetStacktrace());
     } catch (...) {
         ExceptionHandler::LogStacktrace("multiple exceptions - second");
     }
@@ -200,10 +206,12 @@ void TestMultipleExceptions() {
 void TestExceptionWithInner() {
     LOG_INFO("TestExceptionWithInner: starting");
     try {
-        throw std::runtime_error("outer error");
+        throw StacktraceNS::StacktraceException("outer error");
     } catch (...) {
         try {
-            throw std::logic_error("inner error");
+            throw StacktraceNS::StacktraceException("inner error");
+        } catch (const StacktraceNS::StacktraceException& e) {
+            ExceptionHandler::LogStacktrace("exception with inner exception", e.GetStacktrace());
         } catch (...) {
             ExceptionHandler::LogStacktrace("exception with inner exception");
         }
@@ -215,10 +223,13 @@ void TestFutureException() {
     LOG_INFO("TestFutureException: starting");
     std::future<void> f = std::async(std::launch::async, []() {
         LOG_INFO("TestFutureException: async task throwing");
-        throw std::runtime_error("async exception");
+        throw StacktraceNS::StacktraceException("async exception");
     });
     try {
         f.get();
+    } catch (const StacktraceNS::StacktraceException& e) {
+        LOG_INFO("TestFutureException: caught future StacktraceException");
+        ExceptionHandler::LogStacktrace("async/future exception", e.GetStacktrace());
     } catch (...) {
         LOG_INFO("TestFutureException: caught future exception");
         ExceptionHandler::LogStacktrace("async/future exception");
@@ -322,7 +333,7 @@ void TestBadTypeid() {
 // Test 26: std::bad_exception
 void TestBadException() {
     LOG_INFO("TestBadException: throwing bad_exception");
-    throw std::bad_exception();
+    throw StacktraceNS::StacktraceException("std::bad_exception");
 }
 
 // Test 27: null function pointer call
@@ -347,7 +358,7 @@ void TestAssertionFailure() {
 struct ThrowingInConstructor {
     ThrowingInConstructor() {
         LOG_INFO("ThrowingInConstructor: constructor throwing");
-        throw std::runtime_error("exception in constructor");
+        throw StacktraceNS::StacktraceException("exception in constructor");
     }
 };
 
@@ -355,6 +366,9 @@ void TestExceptionInConstructor() {
     LOG_INFO("TestExceptionInConstructor: creating object that throws in ctor");
     try {
         ThrowingInConstructor obj;
+    } catch (const StacktraceNS::StacktraceException& e) {
+        LOG_INFO("TestExceptionInConstructor: caught StacktraceException from constructor");
+        ExceptionHandler::LogStacktrace("exception in constructor", e.GetStacktrace());
     } catch (...) {
         LOG_INFO("TestExceptionInConstructor: caught exception from constructor");
         ExceptionHandler::LogStacktrace("exception in constructor");
@@ -365,7 +379,7 @@ void TestExceptionInConstructor() {
 struct ThrowingInDestructor {
     ~ThrowingInDestructor() noexcept(false) {
         LOG_INFO("ThrowingInDestructor: destructor throwing");
-        throw std::runtime_error("exception in destructor");
+        throw StacktraceNS::StacktraceException("exception in destructor");
     }
 };
 
@@ -373,6 +387,9 @@ void TestExceptionInDestructor() {
     LOG_INFO("TestExceptionInDestructor: creating object that throws in dtor");
     try {
         ThrowingInDestructor obj;
+    } catch (const StacktraceNS::StacktraceException& e) {
+        LOG_INFO("TestExceptionInDestructor: caught StacktraceException from destructor");
+        ExceptionHandler::LogStacktrace("exception in destructor", e.GetStacktrace());
     } catch (...) {
         LOG_INFO("TestExceptionInDestructor: caught exception from destructor");
         ExceptionHandler::LogStacktrace("exception in destructor");
@@ -451,6 +468,10 @@ void RunTest(const std::string& name, int testCase) {
             case 33: TestSignalInChildThread(); break;
             default: LOG_ERROR("Unknown test case: " << testCase);
         }
+    } catch (const StacktraceNS::StacktraceException& e) {
+        std::cout << "[" << GetTimestamp() << "] [CATCH] StacktraceException: "
+                  << e.what() << std::endl;
+        ExceptionHandler::LogStacktrace(std::string("std::exception: ") + e.what(), e.GetStacktrace());
     } catch (const std::exception& e) {
         std::cout << "[" << GetTimestamp() << "] [CATCH] std::exception: "
                   << e.what() << std::endl;

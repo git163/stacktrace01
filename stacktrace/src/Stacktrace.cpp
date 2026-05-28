@@ -163,31 +163,27 @@ std::string Stacktrace::ResolveAddress(void* address) {
 std::string Stacktrace::ToString() const {
 #ifdef STACKTRACE_HAS_BOOST
     std::ostringstream oss;
-    const auto& st = boost::stacktrace::stacktrace();
-    for (size_t i = 0; i < st.size(); ++i) {
-        const void* addr = st[i].address();
+    for (size_t i = 0; i < frames_.size(); ++i) {
+        const auto& frame = frames_[i];
         oss << std::setw(2) << i << "# ";
 
-        std::string name = st[i].name();
-        if (!name.empty()) {
-            oss << Demangle(name.c_str());
+        if (!frame.symbol.empty()) {
+            oss << Demangle(frame.symbol.c_str());
+        } else if (frame.address) {
+            oss << "0x" << std::hex << reinterpret_cast<uintptr_t>(frame.address) << std::dec;
         } else {
-            oss << "0x" << std::hex << reinterpret_cast<uintptr_t>(addr);
+            oss << "(unknown)";
         }
 
-        // Use Boost's source location directly if available
-        std::string srcFile = st[i].source_file();
-        unsigned int srcLine = st[i].source_line();
-        if (!srcFile.empty() && srcLine > 0) {
-            oss << " at " << srcFile << ":" << srcLine;
-        } else {
-            // Fallback to ResolveAddress (atos / addr2line)
-            std::string resolved = ResolveAddress(const_cast<void*>(addr));
+        if (!frame.filename.empty() && frame.lineNumber > 0) {
+            oss << " at " << frame.filename << ":" << frame.lineNumber;
+        } else if (frame.address) {
+            std::string resolved = ResolveAddress(frame.address);
             std::string loc = ExtractFileLine(resolved);
             if (!loc.empty()) {
                 oss << " at " << loc;
-            } else if (!srcFile.empty()) {
-                oss << " at " << srcFile;
+            } else if (!frame.filename.empty()) {
+                oss << " at " << frame.filename;
             }
         }
 
@@ -249,9 +245,30 @@ std::string Stacktrace::Capture(size_t maxFrames) {
 
 #ifdef STACKTRACE_HAS_BOOST
 void Stacktrace::CaptureImpl() {
-    // When using Boost, the actual capture happens in ToString()
+    const auto& st = boost::stacktrace::stacktrace();
+    for (size_t i = 0; i < st.size(); ++i) {
+        Frame frame;
+        frame.address = const_cast<void*>(st[i].address());
+        frame.symbol = st[i].name();
+        frame.filename = st[i].source_file();
+        frame.lineNumber = static_cast<int>(st[i].source_line());
+        frames_.push_back(frame);
+    }
 }
 #endif
+
+// StacktraceException implementation
+StacktraceException::StacktraceException(const std::string& message)
+    : message_(message), stacktrace_(Stacktrace::Capture()) {
+}
+
+const char* StacktraceException::what() const noexcept {
+    return message_.c_str();
+}
+
+const std::string& StacktraceException::GetStacktrace() const noexcept {
+    return stacktrace_;
+}
 
 std::string Demangle(const char* name) {
     if (!name) return "";

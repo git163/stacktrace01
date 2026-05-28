@@ -227,6 +227,10 @@ void ExceptionHandler::Init(const std::string& logFilename) {
 }
 
 void ExceptionHandler::LogStacktrace(const std::string& reason, int signalNum) {
+    LogStacktrace(reason, StacktraceNS::Stacktrace::Capture(), signalNum);
+}
+
+void ExceptionHandler::LogStacktrace(const std::string& reason, const std::string& stacktrace, int signalNum) {
     if (loggingInProgress.exchange(true)) {
         std::string msg = "[" + GetTimestamp() + "] [WARN] LogStacktrace re-entrant call detected, ignoring";
         if (logCallback_) {
@@ -239,7 +243,6 @@ void ExceptionHandler::LogStacktrace(const std::string& reason, int signalNum) {
 
     std::lock_guard<std::mutex> lock(logMutex);
 
-    std::string stacktrace = StacktraceNS::Stacktrace::Capture();
     std::string content = BuildLogContent(reason, signalNum, stacktrace);
 
     std::ofstream ofs(logFilename_, std::ios::app);

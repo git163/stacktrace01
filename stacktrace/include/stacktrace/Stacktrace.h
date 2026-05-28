@@ -1,5 +1,6 @@
 #pragma once
 
+#include <exception>
 #include <string>
 #include <vector>
 
@@ -35,6 +36,17 @@ private:
     std::string ToStringWithLineInfo() const;
 
     std::vector<Frame> frames_;
+};
+
+class StacktraceException : public std::exception {
+public:
+    explicit StacktraceException(const std::string& message);
+    const char* what() const noexcept override;
+    const std::string& GetStacktrace() const noexcept;
+
+private:
+    std::string message_;
+    std::string stacktrace_;
 };
 
 std::string Demangle(const char* name);
