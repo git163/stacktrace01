@@ -1,6 +1,6 @@
 #!/bin/bash
 # =================================================================
-# Linux ARM64 构建脚本
+# Linux x86/x86_64 构建脚本
 # =================================================================
 
 set -e
@@ -11,14 +11,14 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${GREEN}=== Linux ARM64 Stacktrace Build Script ===${NC}"
+echo -e "${GREEN}=== Linux x86/x86_64 Stacktrace Build Script ===${NC}"
 
 # 检测架构
 ARCH=$(uname -m)
 echo "Detected architecture: $ARCH"
 
-if [ "$ARCH" != "aarch64" ] && [ "$ARCH" != "arm64" ]; then
-    echo -e "${YELLOW}Warning: This script is designed for ARM64. Current: $ARCH${NC}"
+if [ "$ARCH" != "x86_64" ] && [ "$ARCH" != "amd64" ] && [ "$ARCH" != "i386" ] && [ "$ARCH" != "i686" ]; then
+    echo -e "${YELLOW}Warning: This script is designed for x86/x86_64. Current: $ARCH${NC}"
 fi
 
 # 检测 Linux
@@ -41,13 +41,13 @@ if [ -f "/usr/include/boost/stacktrace.hpp" ] || [ -f "/usr/local/include/boost/
     echo "Boost detected, using Boost.Stacktrace"
     cmake .. \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_CXX_FLAGS_RELEASE="-march=armv8-a" \
+        -DCMAKE_CXX_FLAGS_RELEASE="-march=x86-64" \
         -DSTACKTRACE_USE_BOOST=ON
 else
     echo "Boost not found, using native implementation"
     cmake .. \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_CXX_FLAGS_RELEASE="-march=armv8-a" \
+        -DCMAKE_CXX_FLAGS_RELEASE="-march=x86-64" \
         -DSTACKTRACE_USE_BOOST=OFF
 fi
 

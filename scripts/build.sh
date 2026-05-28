@@ -11,6 +11,20 @@ echo "  Stacktrace Build & Test Script"
 echo "========================================"
 echo ""
 
+# 平台检测
+PLATFORM=$(uname -s)
+ARCH=$(uname -m)
+echo "[INFO] Platform: $PLATFORM, Architecture: $ARCH"
+
+if [ "$PLATFORM" = "Darwin" ]; then
+    echo "[INFO] Detected macOS platform"
+elif [ "$PLATFORM" = "Linux" ]; then
+    echo "[INFO] Detected Linux platform"
+else
+    echo "[WARN] Unknown platform: $PLATFORM"
+fi
+echo ""
+
 # Clean build directory
 echo "[1/4] Cleaning build directory..."
 rm -rf "$BUILD_DIR"
