@@ -37,6 +37,7 @@ endif()
 
 # Main executable
 add_executable(hello src/main.cpp src/ExceptionHandler.cpp)
+set_source_files_properties(src/main.cpp PROPERTIES COMPILE_FLAGS "-O0")
 
 # Link with stacktrace library
 target_link_libraries(hello PRIVATE stacktrace)
