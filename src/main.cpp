@@ -59,13 +59,19 @@ void TestDeepCallStack() {
     Level1Function();
 }
 
+__attribute__((noinline)) static void NestedInnerLevel3() {
+    throw StacktraceNS::StacktraceException("inner exception");
+}
+__attribute__((noinline)) static void NestedInnerLevel2() { NestedInnerLevel3(); }
+__attribute__((noinline)) static void NestedInnerLevel1() { NestedInnerLevel2(); }
+
 // Test 2: Nested exceptions (std::throw_with_nested)
 void TestNestedExceptions() {
     LOG_INFO("TestNestedExceptions: starting");
     try {
         try {
             LOG_INFO("TestNestedExceptions: throwing inner exception");
-            throw StacktraceNS::StacktraceException("inner exception");
+            NestedInnerLevel1();
         } catch (...) {
             LOG_INFO("TestNestedExceptions: catching and re-throwing with nesting");
             std::throw_with_nested(StacktraceNS::StacktraceException("outer exception"));
@@ -79,12 +85,18 @@ void TestNestedExceptions() {
     }
 }
 
+__attribute__((noinline)) static void ThreadLevel3() {
+    LOG_INFO("TestThreadException: thread started, about to throw");
+    throw std::runtime_error("exception in child thread");
+}
+__attribute__((noinline)) static void ThreadLevel2() { ThreadLevel3(); }
+__attribute__((noinline)) static void ThreadLevel1() { ThreadLevel2(); }
+
 // Test 3: Exception in child thread
 void TestThreadException() {
     LOG_INFO("TestThreadException: starting, will spawn thread");
     std::thread t([]() {
-        LOG_INFO("TestThreadException: thread started, about to throw");
-        throw std::runtime_error("exception in child thread");
+        ThreadLevel1();
     });
     LOG_INFO("TestThreadException: joining thread");
     t.join();
@@ -104,16 +116,20 @@ void TestCustomException() {
 }
 
 
-// Test 5: Invalid memory access (SIGSEGV)
-void TestInvalidMemory() {
-    LOG_INFO("TestInvalidMemory: about to dereference nullptr");
+__attribute__((noinline)) static void InvalidMemoryLevel3() {
     int* ptr = nullptr;
     *ptr = 42;
 }
+__attribute__((noinline)) static void InvalidMemoryLevel2() { InvalidMemoryLevel3(); }
+__attribute__((noinline)) static void InvalidMemoryLevel1() { InvalidMemoryLevel2(); }
 
-// Test 6: Division by zero (SIGFPE)
-void TestDivisionByZero() {
-    LOG_INFO("TestDivisionByZero: about to divide by zero");
+// Test 5: Invalid memory access (SIGSEGV)
+void TestInvalidMemory() {
+    LOG_INFO("TestInvalidMemory: about to dereference nullptr");
+    InvalidMemoryLevel1();
+}
+
+__attribute__((noinline)) static void DivisionByZeroLevel3() {
     // On ARM64 macOS integer division by zero does not trap.
     // Use volatile float division to reliably trigger SIGFPE on all platforms,
     // with a fallback to raise() if the hardware does not trap.
@@ -123,6 +139,14 @@ void TestDivisionByZero() {
     (void)z;
     // Fallback for platforms where float division by zero also does not trap
     raise(SIGFPE);
+}
+__attribute__((noinline)) static void DivisionByZeroLevel2() { DivisionByZeroLevel3(); }
+__attribute__((noinline)) static void DivisionByZeroLevel1() { DivisionByZeroLevel2(); }
+
+// Test 6: Division by zero (SIGFPE)
+void TestDivisionByZero() {
+    LOG_INFO("TestDivisionByZero: about to divide by zero");
+    DivisionByZeroLevel1();
 }
 
 __attribute__((noinline)) static void LogicErrorLevel3() {
@@ -151,11 +175,17 @@ void TestRuntimeError() {
 }
 
 
+__attribute__((noinline)) static void OutOfRangeLevel3() {
+    std::vector<int> v;
+    v.at(100) = 1;
+}
+__attribute__((noinline)) static void OutOfRangeLevel2() { OutOfRangeLevel3(); }
+__attribute__((noinline)) static void OutOfRangeLevel1() { OutOfRangeLevel2(); }
+
 // Test 9: std::out_of_range
 void TestOutOfRange() {
     LOG_INFO("TestOutOfRange: accessing out-of-bounds vector element");
-    std::vector<int> v;
-    v.at(100) = 1;
+    OutOfRangeLevel1();
 }
 
 __attribute__((noinline)) static void InvalidArgumentLevel3() {
@@ -210,13 +240,19 @@ void TestUnderflowError() {
 }
 
 
+__attribute__((noinline)) static void RethrowLevel3() {
+    throw StacktraceNS::StacktraceException("initial exception");
+}
+__attribute__((noinline)) static void RethrowLevel2() { RethrowLevel3(); }
+__attribute__((noinline)) static void RethrowLevel1() { RethrowLevel2(); }
+
 // Test 14: Re-throw exception
 void TestRethrowException() {
     LOG_INFO("TestRethrowException: catching and re-throwing");
     try {
         try {
             LOG_INFO("TestRethrowException: throwing initial exception");
-            throw StacktraceNS::StacktraceException("initial exception");
+            RethrowLevel1();
         } catch (...) {
             LOG_INFO("TestRethrowException: catching and re-throwing");
             throw;
@@ -230,11 +266,23 @@ void TestRethrowException() {
     }
 }
 
+__attribute__((noinline)) static void MultiFirstLevel3() {
+    throw StacktraceNS::StacktraceException("first exception");
+}
+__attribute__((noinline)) static void MultiFirstLevel2() { MultiFirstLevel3(); }
+__attribute__((noinline)) static void MultiFirstLevel1() { MultiFirstLevel2(); }
+
+__attribute__((noinline)) static void MultiSecondLevel3() {
+    throw StacktraceNS::StacktraceException("second exception");
+}
+__attribute__((noinline)) static void MultiSecondLevel2() { MultiSecondLevel3(); }
+__attribute__((noinline)) static void MultiSecondLevel1() { MultiSecondLevel2(); }
+
 // Test 15: Multiple exceptions in sequence
 void TestMultipleExceptions() {
     LOG_INFO("TestMultipleExceptions: throwing first exception");
     try {
-        throw StacktraceNS::StacktraceException("first exception");
+        MultiFirstLevel1();
     } catch (const StacktraceNS::StacktraceException& e) {
         ExceptionHandler::LogStacktrace("multiple exceptions - first", e.GetStacktrace());
     } catch (...) {
@@ -243,7 +291,7 @@ void TestMultipleExceptions() {
 
     LOG_INFO("TestMultipleExceptions: throwing second exception");
     try {
-        throw StacktraceNS::StacktraceException("second exception");
+        MultiSecondLevel1();
     } catch (const StacktraceNS::StacktraceException& e) {
         ExceptionHandler::LogStacktrace("multiple exceptions - second", e.GetStacktrace());
     } catch (...) {
@@ -251,14 +299,26 @@ void TestMultipleExceptions() {
     }
 }
 
+__attribute__((noinline)) static void InnerOuterLevel3() {
+    throw StacktraceNS::StacktraceException("outer error");
+}
+__attribute__((noinline)) static void InnerOuterLevel2() { InnerOuterLevel3(); }
+__attribute__((noinline)) static void InnerOuterLevel1() { InnerOuterLevel2(); }
+
+__attribute__((noinline)) static void InnerInnerLevel3() {
+    throw StacktraceNS::StacktraceException("inner error");
+}
+__attribute__((noinline)) static void InnerInnerLevel2() { InnerInnerLevel3(); }
+__attribute__((noinline)) static void InnerInnerLevel1() { InnerInnerLevel2(); }
+
 // Test 16: Exception with inner exception
 void TestExceptionWithInner() {
     LOG_INFO("TestExceptionWithInner: starting");
     try {
-        throw StacktraceNS::StacktraceException("outer error");
+        InnerOuterLevel1();
     } catch (...) {
         try {
-            throw StacktraceNS::StacktraceException("inner error");
+            InnerInnerLevel1();
         } catch (const StacktraceNS::StacktraceException& e) {
             ExceptionHandler::LogStacktrace("exception with inner exception", e.GetStacktrace());
         } catch (...) {
@@ -267,12 +327,18 @@ void TestExceptionWithInner() {
     }
 }
 
+__attribute__((noinline)) static void FutureLevel3() {
+    LOG_INFO("TestFutureException: async task throwing");
+    throw StacktraceNS::StacktraceException("async exception");
+}
+__attribute__((noinline)) static void FutureLevel2() { FutureLevel3(); }
+__attribute__((noinline)) static void FutureLevel1() { FutureLevel2(); }
+
 // Test 17: Async/future exception
 void TestFutureException() {
     LOG_INFO("TestFutureException: starting");
     std::future<void> f = std::async(std::launch::async, []() {
-        LOG_INFO("TestFutureException: async task throwing");
-        throw StacktraceNS::StacktraceException("async exception");
+        FutureLevel1();
     });
     try {
         f.get();
@@ -285,11 +351,17 @@ void TestFutureException() {
     }
 }
 
+__attribute__((noinline)) static void VoidPointerLevel3() {
+    void* p = nullptr;
+    *(int*)p = 100;
+}
+__attribute__((noinline)) static void VoidPointerLevel2() { VoidPointerLevel3(); }
+__attribute__((noinline)) static void VoidPointerLevel1() { VoidPointerLevel2(); }
+
 // Test 18: Void pointer dereference
 void TestVoidPointerDereference() {
     LOG_INFO("TestVoidPointerDereference: about to dereference void pointer");
-    void* p = nullptr;
-    *(int*)p = 100;
+    VoidPointerLevel1();
 }
 
 // Test 19: Stack overflow
@@ -309,15 +381,19 @@ void TestStackOverflow() {
     RecursiveFunction(1);
 }
 
+__attribute__((noinline)) static void AbortLevel3() {
+    std::abort();
+}
+__attribute__((noinline)) static void AbortLevel2() { AbortLevel3(); }
+__attribute__((noinline)) static void AbortLevel1() { AbortLevel2(); }
+
 // Test 20: Abort signal (SIGABRT)
 void TestAbort() {
     LOG_INFO("TestAbort: calling abort()");
-    std::abort();
+    AbortLevel1();
 }
 
-// Test 21: SIGILL (Illegal instruction)
-void TestIllegalInstruction() {
-    LOG_INFO("TestIllegalInstruction: triggering illegal instruction");
+__attribute__((noinline)) static void IllegalInstructionLevel3() {
 #if defined(__x86_64__) || defined(_M_X64)
     __asm__ volatile(".byte 0xFF, 0xFF, 0xFF, 0xFF");
 #elif defined(__aarch64__)
@@ -326,23 +402,41 @@ void TestIllegalInstruction() {
     raise(SIGILL);
 #endif
 }
+__attribute__((noinline)) static void IllegalInstructionLevel2() { IllegalInstructionLevel3(); }
+__attribute__((noinline)) static void IllegalInstructionLevel1() { IllegalInstructionLevel2(); }
+
+// Test 21: SIGILL (Illegal instruction)
+void TestIllegalInstruction() {
+    LOG_INFO("TestIllegalInstruction: triggering illegal instruction");
+    IllegalInstructionLevel1();
+}
+
+__attribute__((noinline)) static void SigtrapLevel3() {
+    raise(SIGTRAP);
+}
+__attribute__((noinline)) static void SigtrapLevel2() { SigtrapLevel3(); }
+__attribute__((noinline)) static void SigtrapLevel1() { SigtrapLevel2(); }
 
 // Test 22: SIGTRAP (Trace/breakpoint trap)
 void TestSigtrap() {
     LOG_INFO("TestSigtrap: raising SIGTRAP");
-    raise(SIGTRAP);
+    SigtrapLevel1();
 }
+
+__attribute__((noinline)) static void BadAllocLevel3() {
+    std::vector<int> v;
+    v.resize(SIZE_MAX);
+}
+__attribute__((noinline)) static void BadAllocLevel2() { BadAllocLevel3(); }
+__attribute__((noinline)) static void BadAllocLevel1() { BadAllocLevel2(); }
 
 // Test 23: std::bad_alloc
 void TestBadAlloc() {
     LOG_INFO("TestBadAlloc: about to allocate huge memory");
-    std::vector<int> v;
-    v.resize(SIZE_MAX);
+    BadAllocLevel1();
 }
 
-// Test 24: std::bad_cast
-void TestBadCast() {
-    LOG_INFO("TestBadCast: triggering bad_cast");
+__attribute__((noinline)) static void BadCastLevel3() {
     struct Base { virtual ~Base() {} };
     struct Derived1 : Base {};
     struct Derived2 : Base {};
@@ -366,10 +460,16 @@ void TestBadCast() {
     }
     delete d1;
 }
+__attribute__((noinline)) static void BadCastLevel2() { BadCastLevel3(); }
+__attribute__((noinline)) static void BadCastLevel1() { BadCastLevel2(); }
 
-// Test 25: std::bad_typeid
-void TestBadTypeid() {
-    LOG_INFO("TestBadTypeid: triggering bad_typeid");
+// Test 24: std::bad_cast
+void TestBadCast() {
+    LOG_INFO("TestBadCast: triggering bad_cast");
+    BadCastLevel1();
+}
+
+__attribute__((noinline)) static void BadTypeidLevel3() {
     struct Polymorphic { virtual ~Polymorphic() {} };
     Polymorphic* p = nullptr;
     try {
@@ -377,6 +477,14 @@ void TestBadTypeid() {
     } catch (...) {
         ExceptionHandler::LogStacktrace("bad_typeid caught in catch");
     }
+}
+__attribute__((noinline)) static void BadTypeidLevel2() { BadTypeidLevel3(); }
+__attribute__((noinline)) static void BadTypeidLevel1() { BadTypeidLevel2(); }
+
+// Test 25: std::bad_typeid
+void TestBadTypeid() {
+    LOG_INFO("TestBadTypeid: triggering bad_typeid");
+    BadTypeidLevel1();
 }
 
 __attribute__((noinline)) static void BadExceptionLevel3() {
@@ -392,36 +500,56 @@ void TestBadException() {
 }
 
 
-// Test 27: null function pointer call
-void TestNullFunctionPointer() {
-    LOG_INFO("TestNullFunctionPointer: calling null function pointer");
+__attribute__((noinline)) static void NullFunctionPointerLevel3() {
     typedef void (*FuncPtr)();
     FuncPtr fp = nullptr;
     fp();
 }
+__attribute__((noinline)) static void NullFunctionPointerLevel2() { NullFunctionPointerLevel3(); }
+__attribute__((noinline)) static void NullFunctionPointerLevel1() { NullFunctionPointerLevel2(); }
 
-// Test 28: assertion failure (SIGABRT variant)
-void TestAssertionFailure() {
-    LOG_INFO("TestAssertionFailure: triggering assertion-like condition");
+// Test 27: null function pointer call
+void TestNullFunctionPointer() {
+    LOG_INFO("TestNullFunctionPointer: calling null function pointer");
+    NullFunctionPointerLevel1();
+}
+
+__attribute__((noinline)) static void AssertionFailureLevel3() {
     bool condition = false;
     if (!condition) {
         LOG_ERROR("Assertion failed: condition must be true");
         std::terminate();
     }
 }
+__attribute__((noinline)) static void AssertionFailureLevel2() { AssertionFailureLevel3(); }
+__attribute__((noinline)) static void AssertionFailureLevel1() { AssertionFailureLevel2(); }
+
+// Test 28: assertion failure (SIGABRT variant)
+void TestAssertionFailure() {
+    LOG_INFO("TestAssertionFailure: triggering assertion-like condition");
+    AssertionFailureLevel1();
+}
 
 // Test 29: exception in constructor
-struct ThrowingInConstructor {
-    ThrowingInConstructor() {
-        LOG_INFO("ThrowingInConstructor: constructor throwing");
+struct ThrowingCtorLevel3 {
+    __attribute__((noinline)) ThrowingCtorLevel3() {
+        LOG_INFO("ThrowingCtorLevel3: constructor throwing");
         throw StacktraceNS::StacktraceException("exception in constructor");
     }
+};
+struct ThrowingCtorLevel2 {
+    __attribute__((noinline)) ThrowingCtorLevel2() : m_obj() {}
+    ThrowingCtorLevel3 m_obj;
+};
+struct ThrowingCtorLevel1 {
+    __attribute__((noinline)) ThrowingCtorLevel1() : m_obj() {}
+    ThrowingCtorLevel2 m_obj;
 };
 
 void TestExceptionInConstructor() {
     LOG_INFO("TestExceptionInConstructor: creating object that throws in ctor");
     try {
-        ThrowingInConstructor obj;
+        ThrowingCtorLevel1 obj;
     } catch (const StacktraceNS::StacktraceException& e) {
         LOG_INFO("TestExceptionInConstructor: caught StacktraceException from constructor");
         ExceptionHandler::LogStacktrace("exception in constructor", e.GetStacktrace());
@@ -432,17 +560,25 @@ void TestExceptionInConstructor() {
 }
 
 // Test 30: exception in destructor (during stack unwinding)
-struct ThrowingInDestructor {
-    ~ThrowingInDestructor() noexcept(false) {
-        LOG_INFO("ThrowingInDestructor: destructor throwing");
+struct ThrowingDtorLevel3 {
+    __attribute__((noinline)) ~ThrowingDtorLevel3() noexcept(false) {
+        LOG_INFO("ThrowingDtorLevel3: destructor throwing");
         throw StacktraceNS::StacktraceException("exception in destructor");
     }
+};
+struct ThrowingDtorLevel2 {
+    __attribute__((noinline)) ~ThrowingDtorLevel2() noexcept(false) {}
+    ThrowingDtorLevel3 m_obj;
+};
+struct ThrowingDtorLevel1 {
+    __attribute__((noinline)) ~ThrowingDtorLevel1() noexcept(false) {}
+    ThrowingDtorLevel2 m_obj;
 };
 
 void TestExceptionInDestructor() {
     LOG_INFO("TestExceptionInDestructor: creating object that throws in dtor");
     try {
-        ThrowingInDestructor obj;
+        ThrowingDtorLevel1 obj;
     } catch (const StacktraceNS::StacktraceException& e) {
         LOG_INFO("TestExceptionInDestructor: caught StacktraceException from destructor");
         ExceptionHandler::LogStacktrace("exception in destructor", e.GetStacktrace());
@@ -452,25 +588,43 @@ void TestExceptionInDestructor() {
     }
 }
 
+__attribute__((noinline)) static void SigpipeLevel3() {
+    raise(SIGPIPE);
+}
+__attribute__((noinline)) static void SigpipeLevel2() { SigpipeLevel3(); }
+__attribute__((noinline)) static void SigpipeLevel1() { SigpipeLevel2(); }
+
 // Test 31: SIGPIPE (broken pipe)
 void TestSigpipe() {
     LOG_INFO("TestSigpipe: triggering SIGPIPE");
-    raise(SIGPIPE);
+    SigpipeLevel1();
 }
+
+__attribute__((noinline)) static void SigsysLevel3() {
+    raise(SIGSYS);
+}
+__attribute__((noinline)) static void SigsysLevel2() { SigsysLevel3(); }
+__attribute__((noinline)) static void SigsysLevel1() { SigsysLevel2(); }
 
 // Test 32: SIGSYS (bad system call)
 void TestSigsys() {
     LOG_INFO("TestSigsys: triggering SIGSYS");
-    raise(SIGSYS);
+    SigsysLevel1();
 }
+
+__attribute__((noinline)) static void SignalInChildThreadLevel3() {
+    LOG_INFO("TestSignalInChildThread: thread started, about to cause SIGSEGV");
+    int* ptr = nullptr;
+    *ptr = 42;  // This will trigger SIGSEGV
+}
+__attribute__((noinline)) static void SignalInChildThreadLevel2() { SignalInChildThreadLevel3(); }
+__attribute__((noinline)) static void SignalInChildThreadLevel1() { SignalInChildThreadLevel2(); }
 
 // Test 33: Signal in child thread (SIGSEGV)
 void TestSignalInChildThread() {
     LOG_INFO("TestSignalInChildThread: starting, will spawn thread");
     std::thread t([]() {
-        LOG_INFO("TestSignalInChildThread: thread started, about to cause SIGSEGV");
-        int* ptr = nullptr;
-        *ptr = 42;  // This will trigger SIGSEGV
+        SignalInChildThreadLevel1();
     });
     LOG_INFO("TestSignalInChildThread: joining thread");
     t.join();
