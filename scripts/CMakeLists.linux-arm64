@@ -1,0 +1,40 @@
+# =================================================================
+# Linux ARM64 专用 CMakeLists.txt
+# 复制此文件到项目根目录，覆盖原来的 CMakeLists.txt
+# =================================================================
+
+cmake_minimum_required(VERSION 3.10)
+project(HelloWorld)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Linux ARM64 优化
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=armv8-a -pthread")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pthread -rdynamic")
+
+# 添加 stacktrace 子目录
+add_subdirectory(stacktrace)
+
+# 尝试找到 Boost
+find_package(Boost QUIET COMPONENTS stacktrace)
+if(Boost_FOUND)
+    message(STATUS "Linux ARM64: Boost found")
+else()
+    message(STATUS "Linux ARM64: Boost not found, using native")
+endif()
+
+# 主可执行文件
+add_executable(hello src/main.cpp src/exception_handler.cpp)
+
+# 链接 stacktrace 库
+target_link_libraries(hello PRIVATE stacktrace)
+
+# 链接 Boost (如果有)
+if(Boost_FOUND)
+    target_link_libraries(hello PRIVATE Boost::boost)
+endif()
+
+# 确保 pthread
+find_package(Threads REQUIRED)
+target_link_libraries(hello PRIVATE Threads::Threads)

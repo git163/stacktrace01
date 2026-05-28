@@ -1,0 +1,23 @@
+# 编译输出
+build/
+
+# CMake
+# 调试文件
+*.dSYM/
+*.gch/
+*.pdb
+*.log
+# IDE
+# .vscode/
+.idea/
+.claude/
+*.swp
+*.swo
+*~
+
+# 可执行文件
+hello
+*.exe
+*.out
+*.app
+.DS_Store
