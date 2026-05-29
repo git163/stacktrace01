@@ -26,16 +26,17 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     message(STATUS "Stacktrace: Detected macOS platform")
 endif()
 
-# Try to find Boost
+# Boost configuration: set BOOST_ROOT to use Boost.Stacktrace headers
 set(BOOST_ROOT "" CACHE PATH "Boost root directory")
-if(STACKTRACE_USE_BOOST)
-    find_package(Boost QUIET)
-    if(Boost_FOUND)
-        message(STATUS "Stacktrace: Boost found - using Boost.Stacktrace")
-        set(STACKTRACE_HAS_BOOST 1)
-    else()
-        message(STATUS "Stacktrace: Boost not found - using native implementation")
+if(STACKTRACE_USE_BOOST AND BOOST_ROOT)
+    set(STACKTRACE_BOOST_INCLUDE ${BOOST_ROOT}/include)
+    if(NOT TARGET Boost::boost)
+        add_library(Boost::boost INTERFACE IMPORTED)
     endif()
+    set(STACKTRACE_HAS_BOOST 1)
+    message(STATUS "Stacktrace: Using Boost headers at ${BOOST_ROOT}/include")
+else()
+    message(STATUS "Stacktrace: Boost not enabled - using native implementation")
 endif()
 
 # Linux native implementation
@@ -75,6 +76,9 @@ target_include_directories(stacktrace_impl PUBLIC
     $<BUILD_INTERFACE:${STACKTRACE_INCLUDE_DIR}>
     $<INSTALL_INTERFACE:include>
 )
+if(STACKTRACE_BOOST_INCLUDE)
+    target_include_directories(stacktrace_impl PUBLIC ${STACKTRACE_BOOST_INCLUDE})
+endif()
 
 # Set defines
 if(STACKTRACE_HAS_BOOST)

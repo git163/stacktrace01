@@ -27,13 +27,24 @@ include_directories(${CMAKE_SOURCE_DIR}/src/include)
 # Add stacktrace subdirectory
 add_subdirectory(stacktrace)
 
-# Find Boost if available
-find_package(Boost QUIET)
-if(Boost_FOUND)
-    message(STATUS "Main project: Boost found")
+# ------------------------------------------------------------------
+# 第三方库路径适配：修改此处即可适配不同机器的 Boost 安装路径
+# ------------------------------------------------------------------
+# 若 Boost 不在系统默认路径，取消下一行注释并填写实际路径：
+# set(BOOST_ROOT "/usr/local/boost-1.85")
+# ------------------------------------------------------------------
+if(BOOST_ROOT)
+    include_directories(${BOOST_ROOT}/include)
+    if(NOT TARGET Boost::boost)
+        add_library(Boost::boost INTERFACE IMPORTED)
+    endif()
+    set(Boost_FOUND TRUE)
+    message(STATUS "Main project: Using Boost headers at ${BOOST_ROOT}/include")
 else()
-    message(STATUS "Main project: Boost not found, using native stacktrace")
+    set(Boost_FOUND FALSE)
+    message(STATUS "Main project: Boost root not set, using native stacktrace")
 endif()
+# ------------------------------------------------------------------
 
 # Main executable
 add_executable(hello src/main.cpp src/ExceptionHandler.cpp)
