@@ -31,7 +31,7 @@ add_subdirectory(stacktrace)
 # 第三方库路径适配：修改此处即可适配不同机器的 Boost 安装路径
 # ------------------------------------------------------------------
 # 若 Boost 不在系统默认路径，取消下一行注释并填写实际路径：
-# set(BOOST_ROOT "/usr/local/boost-1.85")
+set(BOOST_ROOT "/opt/homebrew/opt/boost")
 # ------------------------------------------------------------------
 if(BOOST_ROOT)
     include_directories(${BOOST_ROOT}/include)
